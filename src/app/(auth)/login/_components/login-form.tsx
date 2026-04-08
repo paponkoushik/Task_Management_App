@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { apiRoutes } from "@/lib/api-routes";
 
 type LoginResponse = {
   error?: string;
@@ -18,7 +19,7 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
 
-    const response = await fetch("/api/auth/login", {
+    const response = await fetch(apiRoutes.login, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

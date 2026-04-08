@@ -10,6 +10,7 @@ import {
   TASK_STATUS_LABELS,
   type AppTaskStatus,
 } from "@/lib/app-constants";
+import { apiRoutes } from "@/lib/api-routes";
 import { LogoutButton } from "@/app/(auth)/_components/logout-button";
 import { TaskComments } from "@/app/(workspace)/_components/task-comments";
 import type {
@@ -689,7 +690,7 @@ export function DashboardShell({
     setError(null);
 
     try {
-      await sendJson("/api/tasks", {
+      await sendJson(apiRoutes.tasks, {
         method: "POST",
         body: JSON.stringify({
           title: taskTitle,
@@ -717,7 +718,7 @@ export function DashboardShell({
     setError(null);
 
     try {
-      await sendJson("/api/sprints", {
+      await sendJson(apiRoutes.sprints, {
         method: "POST",
         body: JSON.stringify({
           name: sprintName,
@@ -738,7 +739,7 @@ export function DashboardShell({
     setError(null);
 
     try {
-      await sendJson(`/api/tasks/${taskId}`, {
+      await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
@@ -755,7 +756,7 @@ export function DashboardShell({
     setError(null);
 
     try {
-      await sendJson(`/api/tasks/${taskId}`, {
+      await sendJson(apiRoutes.task(taskId), {
         method: "DELETE",
       });
       refreshDashboard("Task deleted.");

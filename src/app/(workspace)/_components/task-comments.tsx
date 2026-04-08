@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { apiRoutes } from "@/lib/api-routes";
 import type { AppUserSummary, DashboardTask, TaskComment } from "@/types/task-orbit";
 
 type TaskCommentsProps = {
@@ -64,7 +65,7 @@ export function TaskComments({
     setComments((current) => [...current, optimisticComment]);
     setBody("");
 
-    const response = await fetch(`/api/tasks/${task.id}/comments`, {
+    const response = await fetch(apiRoutes.taskComments(task.id), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

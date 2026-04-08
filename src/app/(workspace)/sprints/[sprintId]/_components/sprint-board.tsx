@@ -23,6 +23,7 @@ import {
   TASK_STATUS_LABELS,
   type AppTaskStatus,
 } from "@/lib/app-constants";
+import { apiRoutes } from "@/lib/api-routes";
 import { LogoutButton } from "@/app/(auth)/_components/logout-button";
 import {
   AssigneeAvatars,
@@ -855,7 +856,7 @@ export function SprintBoard({
     });
 
     try {
-      await sendJson(`/api/tasks/${selectedTask.id}`, {
+      await sendJson(apiRoutes.task(selectedTask.id), {
         method: "PATCH",
         body: JSON.stringify({
           title: selectedTask.title,
@@ -903,7 +904,7 @@ export function SprintBoard({
     );
 
     try {
-      await sendJson(`/api/tasks/${taskId}`, {
+      await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
         body: JSON.stringify({
           title: currentTask.title,
@@ -956,7 +957,7 @@ export function SprintBoard({
     );
 
     try {
-      await sendJson(`/api/tasks/${taskId}`, {
+      await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
         body: JSON.stringify({
           title: currentTask.title,
@@ -1021,7 +1022,7 @@ export function SprintBoard({
     );
 
     try {
-      await sendJson(`/api/tasks/${taskId}/status`, {
+      await sendJson(apiRoutes.taskStatus(taskId), {
         method: "PATCH",
         body: JSON.stringify({
           status: targetStatus,
