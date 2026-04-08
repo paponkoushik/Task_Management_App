@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestJson } from "@/lib/api-client";
+import { getApiErrorMessage, requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 
 type LoginResponse = {
@@ -20,20 +20,24 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
 
-    const { response, payload } = await requestJson<LoginResponse>(apiRoutes.login, {
-      method: "POST",
-      body: { email, password },
-    });
+    try {
+      const { response, payload } = await requestJson<LoginResponse>(apiRoutes.login, {
+        method: "POST",
+        body: { email, password },
+      });
 
-    if (!response.ok) {
-      setError(payload?.error ?? "Login failed.");
-      return;
+      if (!response.ok) {
+        setError(payload?.error ?? "Login failed.");
+        return;
+      }
+
+      startTransition(() => {
+        router.push("/dashboard");
+        router.refresh();
+      });
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Login failed."));
     }
-
-    startTransition(() => {
-      router.push("/dashboard");
-      router.refresh();
-    });
   }
 
   return (

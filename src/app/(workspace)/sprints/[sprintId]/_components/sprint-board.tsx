@@ -16,7 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { sendJson } from "@/lib/api-client";
+import { getApiErrorMessage, sendJson } from "@/lib/api-client";
 import {
   ROLE_LABELS,
   SPRINT_STATUS_LABELS,
@@ -859,7 +859,7 @@ export function SprintBoard({
       setBoardTasks(previousBoardTasks);
       setAvailableBacklogTasks(previousBacklogTasks);
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Could not add task.");
+      setError(getApiErrorMessage(caughtError, "Could not add task."));
     }
   }
 
@@ -906,9 +906,7 @@ export function SprintBoard({
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(
-        caughtError instanceof Error ? caughtError.message : "Could not update assignees.",
-      );
+      setError(getApiErrorMessage(caughtError, "Could not update assignees."));
       throw caughtError;
     }
   }
@@ -959,9 +957,7 @@ export function SprintBoard({
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(
-        caughtError instanceof Error ? caughtError.message : "Could not update planning.",
-      );
+      setError(getApiErrorMessage(caughtError, "Could not update planning."));
       throw caughtError;
     }
   }
@@ -1020,7 +1016,7 @@ export function SprintBoard({
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Could not move task.");
+      setError(getApiErrorMessage(caughtError, "Could not move task."));
     }
   }
 

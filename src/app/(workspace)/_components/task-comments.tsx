@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestJson } from "@/lib/api-client";
+import { getApiErrorMessage, requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 import type { AppUserSummary, DashboardTask, TaskComment } from "@/types/task-orbit";
 
@@ -66,34 +66,40 @@ export function TaskComments({
     setComments((current) => [...current, optimisticComment]);
     setBody("");
 
-    const { response, payload } = await requestJson<{
-      error?: string;
-      comment?: TaskComment;
-    }>(apiRoutes.taskComments(task.id), {
-      method: "POST",
-      body: {
-        body: trimmedBody,
-      },
-    });
+    try {
+      const { response, payload } = await requestJson<{
+        error?: string;
+        comment?: TaskComment;
+      }>(apiRoutes.taskComments(task.id), {
+        method: "POST",
+        body: {
+          body: trimmedBody,
+        },
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        setComments((current) => current.filter((comment) => comment.id !== optimisticId));
+        setBody(trimmedBody);
+        setError(payload?.error ?? "Comment could not be posted.");
+        return;
+      }
+
+      const savedComment = payload?.comment;
+
+      if (savedComment) {
+        setComments((current) =>
+          current.map((comment) => (comment.id === optimisticId ? savedComment : comment)),
+        );
+      }
+
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (caughtError) {
       setComments((current) => current.filter((comment) => comment.id !== optimisticId));
       setBody(trimmedBody);
-      setError(payload?.error ?? "Comment could not be posted.");
-      return;
+      setError(getApiErrorMessage(caughtError, "Comment could not be posted."));
     }
-
-    const savedComment = payload?.comment;
-
-    if (savedComment) {
-      setComments((current) =>
-        current.map((comment) => (comment.id === optimisticId ? savedComment : comment)),
-      );
-    }
-
-    startTransition(() => {
-      router.refresh();
-    });
   }
 
   return (

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { sendJson } from "@/lib/api-client";
+import { getApiErrorMessage, sendJson } from "@/lib/api-client";
 import {
   ROLE_LABELS,
   SPRINT_STATUS_LABELS,
@@ -694,7 +694,7 @@ export function DashboardShell({
       refreshDashboard("Backlog task created.");
     } catch (caughtError) {
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Task creation failed.");
+      setError(getApiErrorMessage(caughtError, "Task creation failed."));
     }
   }
 
@@ -716,7 +716,7 @@ export function DashboardShell({
       refreshDashboard("Sprint created. You can now move tasks into it.");
     } catch (caughtError) {
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Sprint creation failed.");
+      setError(getApiErrorMessage(caughtError, "Sprint creation failed."));
     }
   }
 
@@ -733,7 +733,7 @@ export function DashboardShell({
       );
     } catch (caughtError) {
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Task update failed.");
+      setError(getApiErrorMessage(caughtError, "Task update failed."));
     }
   }
 
@@ -747,7 +747,7 @@ export function DashboardShell({
       refreshDashboard("Task deleted.");
     } catch (caughtError) {
       setFeedback(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Task delete failed.");
+      setError(getApiErrorMessage(caughtError, "Task delete failed."));
     }
   }
 

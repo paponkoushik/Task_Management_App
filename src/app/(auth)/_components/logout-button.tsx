@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestJson } from "@/lib/api-client";
+import { getApiErrorMessage, requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 
 export function LogoutButton() {
@@ -13,19 +13,23 @@ export function LogoutButton() {
   async function handleLogout() {
     setError(null);
 
-    const { response, payload } = await requestJson<{ error?: string }>(apiRoutes.logout, {
-      method: "POST",
-    });
+    try {
+      const { response, payload } = await requestJson<{ error?: string }>(apiRoutes.logout, {
+        method: "POST",
+      });
 
-    if (!response.ok) {
-      setError(payload?.error ?? "Logout failed.");
-      return;
+      if (!response.ok) {
+        setError(payload?.error ?? "Logout failed.");
+        return;
+      }
+
+      startTransition(() => {
+        router.push("/login");
+        router.refresh();
+      });
+    } catch (caughtError) {
+      setError(getApiErrorMessage(caughtError, "Logout failed."));
     }
-
-    startTransition(() => {
-      router.push("/login");
-      router.refresh();
-    });
   }
 
   return (
