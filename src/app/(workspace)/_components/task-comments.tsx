@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 import type { AppUserSummary, DashboardTask, TaskComment } from "@/types/task-orbit";
 
@@ -65,25 +66,22 @@ export function TaskComments({
     setComments((current) => [...current, optimisticComment]);
     setBody("");
 
-    const response = await fetch(apiRoutes.taskComments(task.id), {
+    const { response, payload } = await requestJson<{
+      error?: string;
+      comment?: TaskComment;
+    }>(apiRoutes.taskComments(task.id), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      body: {
         body: trimmedBody,
-      }),
+      },
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       setComments((current) => current.filter((comment) => comment.id !== optimisticId));
       setBody(trimmedBody);
       setError(payload?.error ?? "Comment could not be posted.");
       return;
     }
-
-    const payload = (await response.json().catch(() => null)) as { comment?: TaskComment } | null;
 
     const savedComment = payload?.comment;
 

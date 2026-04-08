@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { sendJson } from "@/lib/api-client";
 import {
   ROLE_LABELS,
   SPRINT_STATUS_LABELS,
@@ -37,22 +38,6 @@ import type {
 } from "@/types/task-orbit";
 
 type SprintBoardProps = SprintBoardViewModel;
-
-async function sendJson(url: string, options: RequestInit) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-  });
-
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Something went wrong.");
-  }
-}
 
 function displayName(user: AppUserSummary | null) {
   return displayUserName(user);
@@ -858,7 +843,7 @@ export function SprintBoard({
     try {
       await sendJson(apiRoutes.task(selectedTask.id), {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           title: selectedTask.title,
           description: selectedTask.description,
           storyPoints: selectedTask.storyPoints,
@@ -866,7 +851,7 @@ export function SprintBoard({
           assigneeIds: selectedTask.assignees.map((assignee) => assignee.id),
           sprintId: sprint.id,
           status: selectedTask.status,
-        }),
+        },
       });
 
       refreshBoard("Task moved from backlog into this sprint.");
@@ -906,7 +891,7 @@ export function SprintBoard({
     try {
       await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           title: currentTask.title,
           description: currentTask.description,
           storyPoints: currentTask.storyPoints,
@@ -914,7 +899,7 @@ export function SprintBoard({
           assigneeIds,
           sprintId: sprint.id,
           status: currentTask.status,
-        }),
+        },
       });
 
       refreshBoard(`Assignees updated for "${currentTask.title}".`);
@@ -959,7 +944,7 @@ export function SprintBoard({
     try {
       await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           title: currentTask.title,
           description: currentTask.description,
           storyPoints: planning.storyPoints,
@@ -967,7 +952,7 @@ export function SprintBoard({
           assigneeIds: currentTask.assignees.map((assignee) => assignee.id),
           sprintId: sprint.id,
           status: currentTask.status,
-        }),
+        },
       });
 
       refreshBoard(`Planning updated for "${currentTask.title}".`);
@@ -1024,9 +1009,9 @@ export function SprintBoard({
     try {
       await sendJson(apiRoutes.taskStatus(taskId), {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           status: targetStatus,
-        }),
+        },
       });
 
       refreshBoard(

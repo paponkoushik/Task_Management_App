@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 
 type LoginResponse = {
@@ -19,16 +20,12 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
 
-    const response = await fetch(apiRoutes.login, {
+    const { response, payload } = await requestJson<LoginResponse>(apiRoutes.login, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
+      body: { email, password },
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as LoginResponse | null;
       setError(payload?.error ?? "Login failed.");
       return;
     }

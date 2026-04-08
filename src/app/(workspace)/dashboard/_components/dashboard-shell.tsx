@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { sendJson } from "@/lib/api-client";
 import {
   ROLE_LABELS,
   SPRINT_STATUS_LABELS,
@@ -31,22 +32,6 @@ type TaskPayload = {
   sprintId: number | null;
   status: AppTaskStatus;
 };
-
-async function sendJson(url: string, options: RequestInit) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-  });
-
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Something went wrong.");
-  }
-}
 
 function displayName(user: AppUserSummary | null) {
   if (!user) {
@@ -692,13 +677,13 @@ export function DashboardShell({
     try {
       await sendJson(apiRoutes.tasks, {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           title: taskTitle,
           description: taskDescription,
           storyPoints: parseStoryPointsInput(taskStoryPoints),
           estimate: taskEstimate,
           assigneeIds: taskAssigneeIds,
-        }),
+        },
       });
 
       setTaskTitle("");
@@ -720,10 +705,10 @@ export function DashboardShell({
     try {
       await sendJson(apiRoutes.sprints, {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: sprintName,
           goal: sprintGoal,
-        }),
+        },
       });
 
       setSprintName("");
@@ -741,7 +726,7 @@ export function DashboardShell({
     try {
       await sendJson(apiRoutes.task(taskId), {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: payload,
       });
       refreshDashboard(
         payload.sprintId ? "Task saved and synced with its sprint." : "Task saved successfully.",

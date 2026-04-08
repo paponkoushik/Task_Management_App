@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
 
 export function LogoutButton() {
@@ -12,12 +13,11 @@ export function LogoutButton() {
   async function handleLogout() {
     setError(null);
 
-    const response = await fetch(apiRoutes.logout, {
+    const { response, payload } = await requestJson<{ error?: string }>(apiRoutes.logout, {
       method: "POST",
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       setError(payload?.error ?? "Logout failed.");
       return;
     }
