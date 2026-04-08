@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MANAGER
+  MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETE
+}
+
+enum SprintStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String?
+  email         String    @unique
+  passwordHash  String    @default("")
+  role          UserRole  @default(MEMBER)
+  createdTasks  Task[]    @relation("CreatedTasks")
+  assignedTasks Task[]    @relation("AssignedTasks")
+  taskAssignments TaskAssignment[]
+  comments      Comment[] @relation("TaskComments")
+  createdSprints Sprint[] @relation("CreatedSprints")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Sprint {
+  id         Int          @id @default(autoincrement())
+  name       String
+  goal       String?
+  status     SprintStatus @default(ACTIVE)
+  creatorId  Int
+  creator    User         @relation("CreatedSprints", fields: [creatorId], references: [id], onDelete: Cascade)
+  tasks      Task[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  storyPoints Int?
+  estimate    String?
+  status      TaskStatus @default(TODO)
+  creatorId   Int
+  assigneeId  Int?
+  sprintId    Int?
+  position    Int        @default(0)
+  creator     User       @relation("CreatedTasks", fields: [creatorId], references: [id], onDelete: Cascade)
+  assignee    User?      @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+  taskAssignments TaskAssignment[]
+  sprint      Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  comments    Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([creatorId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([sprintId, status, position])
+}
+
+model TaskAssignment {
+  taskId      Int
+  userId      Int
+  assignedAt  DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  body      String
+  taskId    Int
+  authorId  Int
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation("TaskComments", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, createdAt])
+  @@index([authorId])
+}
