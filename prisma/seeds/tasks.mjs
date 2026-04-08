@@ -77,19 +77,13 @@ export async function seedTasks(prisma, usersByKey) {
       },
     });
 
-    const data = {
+    const baseData = {
       description: task.description,
       storyPoints: task.storyPoints,
       estimate: task.estimate,
       status: task.status,
       creatorId: usersByKey[task.creatorKey].id,
       assigneeId: null,
-      taskAssignments: {
-        deleteMany: {},
-        create: assigneeIds.map((userId) => ({
-          userId,
-        })),
-      },
     };
 
     if (existingTask) {
@@ -99,7 +93,13 @@ export async function seedTasks(prisma, usersByKey) {
         },
         data: {
           title: task.title,
-          ...data,
+          ...baseData,
+          taskAssignments: {
+            deleteMany: {},
+            create: assigneeIds.map((userId) => ({
+              userId,
+            })),
+          },
         },
       });
 
@@ -109,7 +109,12 @@ export async function seedTasks(prisma, usersByKey) {
     await prisma.task.create({
       data: {
         title: task.title,
-        ...data,
+        ...baseData,
+        taskAssignments: {
+          create: assigneeIds.map((userId) => ({
+            userId,
+          })),
+        },
       },
     });
   }

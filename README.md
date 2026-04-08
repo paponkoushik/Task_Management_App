@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Task Orbit
 
-## Getting Started
+Task Orbit is a Next.js task management app with JWT auth, manager/member roles,
+sprint-based kanban boards, comments, story points, and estimates.
 
-First, run the development server:
+## Environment Strategy
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Do not commit the real `.env` file.
+
+- Local development uses your local PostgreSQL database.
+- Vercel uses Neon PostgreSQL through project environment variables.
+- Both environments use the same Prisma schema, migrations, and seed script.
+
+Use `.env.example` as the template for required variables:
+
+```env
+DATABASE_URL=""
+DIRECT_URL=""
+JWT_SECRET=""
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Your local `.env` should point to local PostgreSQL:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+DATABASE_URL="postgresql://postgres:123456@localhost:5432/next_app?schema=public"
+DIRECT_URL="postgresql://postgres:123456@localhost:5432/next_app?schema=public"
+JWT_SECRET="next-todo-dev-secret"
+```
 
-## Learn More
+Run locally:
 
-To learn more about Next.js, take a look at the following resources:
+```powershell
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Useful database commands:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+npm run db:migrate -- --name your_change
+npm run db:seed
+npm run db:studio
+```
 
-## Deploy on Vercel
+## Vercel Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+In Vercel Project Settings -> Environment Variables, set:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `DATABASE_URL` = Neon pooled URL
+- `DIRECT_URL` = Neon unpooled URL
+- `JWT_SECRET` = a long random secret
+
+This project is already prepared for Prisma deployment on Vercel:
+
+```json
+"vercel-build": "prisma generate && prisma migrate deploy && next build"
+```
+
+After the environment variables are set, redeploy the project.
+
+## Remote Database Setup
+
+To apply the Prisma schema to the Neon database:
+
+```powershell
+$env:DATABASE_URL="YOUR_POOLED_NEON_URL"
+$env:DIRECT_URL="YOUR_UNPOOLED_NEON_URL"
+npm run db:deploy
+```
+
+To insert the seeded demo users and tasks into Neon:
+
+```powershell
+$env:DATABASE_URL="YOUR_POOLED_NEON_URL"
+$env:DIRECT_URL="YOUR_UNPOOLED_NEON_URL"
+npm run db:seed
+```
+
+This means you can keep developing locally with your local PostgreSQL database,
+while Vercel uses Neon with the same schema and seed flow.
