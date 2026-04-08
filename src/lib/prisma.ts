@@ -16,19 +16,51 @@ function hasExpectedDelegates(client: PrismaClient | undefined) {
   );
 }
 
-const cachedPrisma =
-  globalForPrisma.prismaCacheKey === PRISMA_CACHE_KEY &&
-  hasExpectedDelegates(globalForPrisma.prisma)
-    ? globalForPrisma.prisma
-    : undefined;
-
-export const prisma =
-  cachedPrisma ??
-  new PrismaClient({
+function createPrismaClient() {
+  return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-  globalForPrisma.prismaCacheKey = PRISMA_CACHE_KEY;
 }
+
+function getPrismaClient() {
+  const cachedPrisma =
+    globalForPrisma.prismaCacheKey === PRISMA_CACHE_KEY &&
+    hasExpectedDelegates(globalForPrisma.prisma)
+      ? globalForPrisma.prisma
+      : undefined;
+
+  const prismaClient = cachedPrisma ?? createPrismaClient();
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prismaClient;
+    globalForPrisma.prismaCacheKey = PRISMA_CACHE_KEY;
+  }
+
+  return prismaClient;
+}
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const prismaClient = getPrismaClient() as PrismaClient & Record<PropertyKey, unknown>;
+    const value = Reflect.get(prismaClient, property, receiver);
+    return typeof value === "function" ? value.bind(prismaClient) : value;
+  },
+  has(_target, property) {
+    return property in getPrismaClient();
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getPrismaClient());
+  },
+  getOwnPropertyDescriptor(_target, property) {
+    const descriptor = Object.getOwnPropertyDescriptor(getPrismaClient(), property);
+
+    if (!descriptor) {
+      return undefined;
+    }
+
+    return {
+      ...descriptor,
+      configurable: true,
+    };
+  },
+}) as PrismaClient;
