@@ -18,14 +18,20 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage, sendJson } from "@/lib/api-client";
 import {
-  ROLE_LABELS,
-  SPRINT_STATUS_LABELS,
   TASK_STATUSES,
-  TASK_STATUS_LABELS,
   type AppTaskStatus,
 } from "@/lib/app-constants";
 import { apiRoutes } from "@/lib/api-routes";
+import {
+  formatCountLabel,
+  formatDateTime,
+  type AppLocale,
+  getRoleLabel,
+  getSprintStatusLabel,
+  getTaskStatusLabel,
+} from "@/lib/i18n";
 import { LogoutButton } from "@/app/(auth)/_components/logout-button";
+import { useI18n } from "@/app/_components/i18n-provider";
 import {
   AssigneeAvatars,
   displayUserName,
@@ -39,20 +45,24 @@ import type {
 
 type SprintBoardProps = SprintBoardViewModel;
 
-function displayName(user: AppUserSummary | null) {
+function displayName(user: AppUserSummary | null, unassignedLabel: string) {
+  if (!user) {
+    return unassignedLabel;
+  }
+
   return displayUserName(user);
 }
 
-function displayAssigneeNames(users: AppUserSummary[]) {
+function displayAssigneeNames(users: AppUserSummary[], unassignedLabel: string) {
   if (users.length === 0) {
-    return "Unassigned";
+    return unassignedLabel;
   }
 
-  return users.map((user) => displayName(user)).join(", ");
+  return users.map((user) => displayName(user, unassignedLabel)).join(", ");
 }
 
-function formatStamp(value: string) {
-  return new Date(value).toLocaleString();
+function formatStamp(value: string, locale: AppLocale) {
+  return formatDateTime(value, locale);
 }
 
 function parseStoryPointsInput(value: string) {
@@ -73,6 +83,8 @@ function TaskPlanningBadges({
   storyPoints: number | null;
   estimate: string | null;
 }) {
+  const { messages } = useI18n();
+
   if (!storyPoints && !estimate) {
     return null;
   }
@@ -86,7 +98,7 @@ function TaskPlanningBadges({
       ) : null}
       {estimate ? (
         <span className="rounded-full bg-amber-100 px-3 py-2 font-semibold text-amber-900">
-          Est. {estimate}
+          {messages.dashboard.estimate}: {estimate}
         </span>
       ) : null}
     </div>
@@ -104,6 +116,7 @@ function KanbanPlanningEditor({
   disabled: boolean;
   onSave: (nextPlanning: { storyPoints: number | null; estimate: string | null }) => Promise<void>;
 }) {
+  const { messages } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [draftStoryPoints, setDraftStoryPoints] = useState(storyPoints ? String(storyPoints) : "");
@@ -152,7 +165,7 @@ function KanbanPlanningEditor({
       <button
         type="button"
         disabled={disabled}
-        aria-label={isOpen ? "Collapse planning menu" : "Expand planning menu"}
+        aria-label={isOpen ? messages.comments.hide : messages.comments.show}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-600 transition hover:border-sky-500 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -177,8 +190,12 @@ function KanbanPlanningEditor({
         <div className="absolute right-0 top-12 z-20 w-72 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-[0_22px_60px_rgba(15,23,42,0.16)]">
           <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 px-2 pb-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950">Planning</p>
-              <p className="text-xs text-slate-500">Edit story point and estimate</p>
+              <p className="text-sm font-semibold text-slate-950">
+                {messages.sprintBoard.planningMenuTitle}
+              </p>
+              <p className="text-xs text-slate-500">
+                {messages.sprintBoard.planningMenuDescription}
+              </p>
             </div>
             <button
               type="button"
@@ -188,13 +205,13 @@ function KanbanPlanningEditor({
               }}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-rose-200 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Clear
+              {messages.common.clear}
             </button>
           </div>
 
           <div className="grid gap-3 px-2">
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Story point</span>
+              <span className="font-medium">{messages.dashboard.storyPoint}</span>
               <input
                 type="number"
                 min={1}
@@ -203,18 +220,18 @@ function KanbanPlanningEditor({
                 onChange={(event) => setDraftStoryPoints(event.target.value)}
                 disabled={disabled || isSaving}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="e.g. 5"
+                placeholder={messages.dashboard.storyPoint}
               />
             </label>
 
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Estimate</span>
+              <span className="font-medium">{messages.dashboard.estimate}</span>
               <input
                 value={draftEstimate}
                 onChange={(event) => setDraftEstimate(event.target.value)}
                 disabled={disabled || isSaving}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="e.g. 2d or 6h"
+                placeholder={messages.common.estimatePlaceholder}
                 maxLength={60}
               />
             </label>
@@ -222,7 +239,9 @@ function KanbanPlanningEditor({
 
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 px-2 pt-3">
             <p className="text-xs text-slate-500">
-              {draftStoryPoints || draftEstimate ? "Ready to save planning data." : "No plan yet."}
+              {draftStoryPoints || draftEstimate
+                ? messages.sprintBoard.readyToSavePlanning
+                : messages.sprintBoard.noPlanYet}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -235,7 +254,7 @@ function KanbanPlanningEditor({
                 }}
                 className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {messages.common.cancel}
               </button>
               <button
                 type="button"
@@ -248,7 +267,7 @@ function KanbanPlanningEditor({
                 }}
                 className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? `${messages.common.save}...` : messages.common.save}
               </button>
             </div>
           </div>
@@ -296,6 +315,7 @@ function KanbanAssigneePicker({
   disabled: boolean;
   onSave: (nextIds: number[]) => Promise<void>;
 }) {
+  const { locale, messages } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -304,7 +324,7 @@ function KanbanAssigneePicker({
   const [isSaving, setIsSaving] = useState(false);
 
   const filteredUsers = users.filter((user) => {
-    const haystack = `${displayName(user)} ${user.email}`.toLowerCase();
+    const haystack = `${displayName(user, messages.common.unassigned)} ${user.email}`.toLowerCase();
     return haystack.includes(searchTerm.trim().toLowerCase());
   });
 
@@ -361,7 +381,7 @@ function KanbanAssigneePicker({
       <button
         type="button"
         disabled={disabled}
-        aria-label={isOpen ? "Collapse assignee menu" : "Expand assignee menu"}
+        aria-label={isOpen ? messages.comments.hide : messages.comments.show}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-600 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -391,8 +411,12 @@ function KanbanAssigneePicker({
         <div className="absolute right-0 top-12 z-20 w-72 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-[0_22px_60px_rgba(15,23,42,0.16)]">
           <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 px-2 pb-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950">Assign members</p>
-              <p className="text-xs text-slate-500">Update task assignees from the board</p>
+              <p className="text-sm font-semibold text-slate-950">
+                {messages.sprintBoard.assigneeMenuTitle}
+              </p>
+              <p className="text-xs text-slate-500">
+                {messages.sprintBoard.assigneeMenuDescription}
+              </p>
             </div>
             <button
               type="button"
@@ -400,7 +424,7 @@ function KanbanAssigneePicker({
               onClick={() => setDraftIds([])}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-rose-200 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Clear
+              {messages.common.clear}
             </button>
           </div>
 
@@ -409,7 +433,7 @@ function KanbanAssigneePicker({
               ref={searchInputRef}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search user"
+              placeholder={messages.common.searchUser}
               disabled={disabled || isSaving}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-teal-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
             />
@@ -418,7 +442,7 @@ function KanbanAssigneePicker({
           <div className="grid max-h-60 gap-2 overflow-y-auto pr-1">
             {filteredUsers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-                No user found.
+                {messages.common.noUserFound}
               </div>
             ) : null}
 
@@ -438,7 +462,7 @@ function KanbanAssigneePicker({
                   } ${(disabled || isSaving) ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-teal-400 hover:bg-teal-50/50"}`}
                 >
                   <div className="min-w-0">
-                    <p className="font-medium">{displayName(user)}</p>
+                    <p className="font-medium">{displayName(user, messages.common.unassigned)}</p>
                     <p className="truncate text-xs text-slate-500">{user.email}</p>
                   </div>
                   <span
@@ -463,8 +487,13 @@ function KanbanAssigneePicker({
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 px-2 pt-3">
             <p className="text-xs text-slate-500">
               {draftIds.length === 0
-                ? "No member selected yet."
-                : `${draftIds.length} member${draftIds.length > 1 ? "s" : ""} selected`}
+                ? messages.dashboard.noMemberSelectedYet
+                : formatCountLabel(
+                    draftIds.length,
+                    messages.dashboard.selectedMembers,
+                    messages.dashboard.selectedMembersPlural,
+                    locale,
+                  )}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -476,7 +505,7 @@ function KanbanAssigneePicker({
                 }}
                 className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {messages.common.cancel}
               </button>
               <button
                 type="button"
@@ -486,7 +515,7 @@ function KanbanAssigneePicker({
                 }}
                 className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? `${messages.common.save}...` : messages.common.save}
               </button>
             </div>
           </div>
@@ -518,6 +547,7 @@ function KanbanCard({
     planning: { storyPoints: number | null; estimate: string | null },
   ) => Promise<void>;
 }) {
+  const { messages } = useI18n();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `task-${task.id}`,
     disabled: !canDrag || isPending,
@@ -555,7 +585,7 @@ function KanbanCard({
               disabled={isPending}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60 touch-none"
             >
-              Drag
+              {messages.sprintBoard.drag}
             </button>
           ) : null
         }
@@ -592,12 +622,13 @@ function KanbanCardBody({
   showAssignmentControls?: boolean;
   showPlanningControls?: boolean;
 }) {
+  const { locale, messages } = useI18n();
   return (
     <>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Task #{task.id}
+            {messages.common.task} #{task.id}
           </p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
             {task.title}
@@ -605,14 +636,14 @@ function KanbanCardBody({
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-            {TASK_STATUS_LABELS[task.status]}
+            {getTaskStatusLabel(task.status, messages)}
           </span>
           {dragHandle}
         </div>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        {task.description || "No description added yet."}
+        {task.description || messages.common.noDescription}
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -631,11 +662,13 @@ function KanbanCardBody({
       <div className="mt-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Assignees
+            {messages.common.assignees}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <AssigneeAvatars
               users={task.assignees}
+              emptyLabel={messages.common.unassigned}
+              removeLabel={messages.common.remove}
               disabled={isPending}
               onRemove={
                 canAssign
@@ -665,16 +698,23 @@ function KanbanCardBody({
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
         <span className="rounded-full bg-slate-100 px-3 py-2">
-          Creator: {displayName(task.creator)}
+          {messages.common.creator}: {displayName(task.creator, messages.common.unassigned)}
         </span>
         <span className="rounded-full bg-slate-100 px-3 py-2">
           {task.assignees.length === 0
-            ? "No assignee yet"
-            : `${task.assignees.length} assignee${task.assignees.length > 1 ? "s" : ""}`}
+            ? messages.common.noAssigneeYet
+            : formatCountLabel(
+                task.assignees.length,
+                messages.common.assignee,
+                messages.common.assignees,
+                locale,
+              )}
         </span>
       </div>
 
-      <p className="mt-4 text-xs text-slate-500">Updated {formatStamp(task.updatedAt)}</p>
+      <p className="mt-4 text-xs text-slate-500">
+        {messages.common.updated} {formatStamp(task.updatedAt, locale)}
+      </p>
 
       {showComments ? <TaskComments task={task} currentUser={currentUser} compact /> : null}
     </>
@@ -701,6 +741,7 @@ function KanbanColumn({
     planning: { storyPoints: number | null; estimate: string | null },
   ) => Promise<void>;
 }) {
+  const { locale, messages } = useI18n();
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
@@ -715,21 +756,21 @@ function KanbanColumn({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Column
+            {messages.sprintBoard.column}
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-            {TASK_STATUS_LABELS[status]}
+            {getTaskStatusLabel(status, messages)}
           </h2>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
-          {tasks.length}
+          {formatCountLabel(tasks.length, messages.common.task, messages.common.tasks, locale)}
         </span>
       </div>
 
       <div className="mt-5 space-y-4">
         {tasks.length === 0 ? (
           <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/70 px-4 py-8 text-center text-sm text-slate-500">
-            Drop a task here.
+            {messages.sprintBoard.dropTaskHere}
           </div>
         ) : (
           tasks.map((task) => (
@@ -762,6 +803,7 @@ export function SprintBoard({
   backlogTasks,
 }: SprintBoardProps) {
   const router = useRouter();
+  const { messages } = useI18n();
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const [boardTasks, setBoardTasks] = useState(tasks);
   const [availableBacklogTasks, setAvailableBacklogTasks] = useState(backlogTasks);
@@ -800,7 +842,7 @@ export function SprintBoard({
     setError(null);
 
     if (!selectedBacklogTaskId) {
-      setError("Choose a backlog task first.");
+      setError(messages.sprintBoard.chooseBacklogTask);
       return;
     }
 
@@ -809,7 +851,7 @@ export function SprintBoard({
     );
 
     if (!selectedTask) {
-      setError("That backlog task was not found.");
+      setError(messages.sprintBoard.backlogTaskNotFound);
       return;
     }
 
@@ -854,12 +896,18 @@ export function SprintBoard({
         },
       });
 
-      refreshBoard("Task moved from backlog into this sprint.");
+      refreshBoard(messages.sprintBoard.movedIntoSprint);
     } catch (caughtError) {
       setBoardTasks(previousBoardTasks);
       setAvailableBacklogTasks(previousBacklogTasks);
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Could not add task."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.sprintBoard.addTaskFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -902,11 +950,17 @@ export function SprintBoard({
         },
       });
 
-      refreshBoard(`Assignees updated for "${currentTask.title}".`);
+      refreshBoard(`${messages.sprintBoard.assigneesUpdated} "${currentTask.title}".`);
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Could not update assignees."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.sprintBoard.assigneeUpdateFailed,
+          messages.common.networkError,
+        ),
+      );
       throw caughtError;
     }
   }
@@ -953,11 +1007,17 @@ export function SprintBoard({
         },
       });
 
-      refreshBoard(`Planning updated for "${currentTask.title}".`);
+      refreshBoard(`${messages.sprintBoard.planningUpdated} "${currentTask.title}".`);
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Could not update planning."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.sprintBoard.planningUpdateFailed,
+          messages.common.networkError,
+        ),
+      );
       throw caughtError;
     }
   }
@@ -1011,12 +1071,18 @@ export function SprintBoard({
       });
 
       refreshBoard(
-        `Task "${movingTask.title}" moved to ${TASK_STATUS_LABELS[targetStatus]}.`,
+        `${messages.sprintBoard.taskMovedTo} ${getTaskStatusLabel(targetStatus, messages)}.`,
       );
     } catch (caughtError) {
       setBoardTasks(previousTasks);
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Could not move task."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.sprintBoard.taskMoveFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -1027,26 +1093,26 @@ export function SprintBoard({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-sky-800">
-                Sprint Kanban
+                {messages.sprintBoard.eyebrow}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">
                 {sprint.name}
               </h1>
               <p className="mt-4 text-base leading-7 text-slate-700">
-                {sprint.goal || "This sprint does not have a goal yet."}
+                {sprint.goal || messages.dashboard.noSprintGoal}
               </p>
               <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
                 <span className="rounded-full bg-white px-4 py-2 shadow-sm">
-                  {SPRINT_STATUS_LABELS[sprint.status]}
+                  {getSprintStatusLabel(sprint.status, messages)}
                 </span>
                 <span className="rounded-full bg-white px-4 py-2 shadow-sm">
-                  Viewer: {ROLE_LABELS[currentUser.role]}
+                  {messages.sprintBoard.viewer}: {getRoleLabel(currentUser.role, messages)}
                 </span>
                 <Link
                   href="/dashboard"
                   className="rounded-full bg-white px-4 py-2 font-medium text-teal-800 shadow-sm"
                 >
-                  Back to dashboard
+                  {messages.common.backToDashboard}
                 </Link>
               </div>
             </div>
@@ -1054,13 +1120,21 @@ export function SprintBoard({
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <SprintSummaryCard label="Todo" value={boardCounts.TODO} tone="bg-white/80" />
             <SprintSummaryCard
-              label="In Progress"
+              label={messages.dashboard.todo}
+              value={boardCounts.TODO}
+              tone="bg-white/80"
+            />
+            <SprintSummaryCard
+              label={messages.dashboard.inProgress}
               value={boardCounts.IN_PROGRESS}
               tone="bg-white/80"
             />
-            <SprintSummaryCard label="Complete" value={boardCounts.COMPLETE} tone="bg-white/80" />
+            <SprintSummaryCard
+              label={messages.dashboard.complete}
+              value={boardCounts.COMPLETE}
+              tone="bg-white/80"
+            />
           </div>
         </header>
 
@@ -1081,13 +1155,13 @@ export function SprintBoard({
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Sprint Planning
+                  {messages.sprintBoard.planningEyebrow}
                 </p>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                  Add backlog tasks into this sprint
+                  {messages.sprintBoard.planningTitle}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  When a backlog task enters the sprint, it starts in the Todo column.
+                  {messages.sprintBoard.planningDescription}
                 </p>
               </div>
 
@@ -1099,11 +1173,11 @@ export function SprintBoard({
                   disabled={isPending || availableBacklogTasks.length === 0}
                 >
                   {availableBacklogTasks.length === 0 ? (
-                    <option value="">No backlog tasks available</option>
+                    <option value="">{messages.sprintBoard.noBacklogTasksAvailable}</option>
                   ) : null}
                   {availableBacklogTasks.map((task) => (
                     <option key={task.id} value={task.id}>
-                      {task.title} - {displayAssigneeNames(task.assignees)}
+                      {task.title} - {displayAssigneeNames(task.assignees, messages.common.unassigned)}
                     </option>
                   ))}
                 </select>
@@ -1113,7 +1187,7 @@ export function SprintBoard({
                   disabled={isPending || availableBacklogTasks.length === 0}
                   className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isPending ? "Working..." : "Add to sprint"}
+                  {isPending ? messages.common.working : messages.sprintBoard.addToSprint}
                 </button>
               </form>
             </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getDictionary } from "@/lib/i18n-server";
 import { createTaskSchema } from "@/lib/schemas";
 import { validateMemberAssigneeIds } from "@/lib/task-assignees";
 
@@ -9,15 +10,16 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const messages = await getDictionary();
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json({ error: messages.api.unauthorized }, { status: 401 });
   }
 
   if (currentUser.role !== "MANAGER") {
     return NextResponse.json(
-      { error: "Only the manager can create tasks." },
+      { error: messages.api.onlyManagerCreatesTasks },
       { status: 403 },
     );
   }
@@ -27,12 +29,16 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Task title is required. Description can be up to 500 characters." },
+      { error: messages.api.taskTitleRequired },
       { status: 400 },
     );
   }
 
-  const validatedAssigneeIds = await validateMemberAssigneeIds(prisma, parsed.data.assigneeIds);
+  const validatedAssigneeIds = await validateMemberAssigneeIds(
+    prisma,
+    parsed.data.assigneeIds,
+    messages,
+  );
 
   if (!validatedAssigneeIds.ok) {
     return NextResponse.json(

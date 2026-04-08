@@ -5,14 +5,20 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage, sendJson } from "@/lib/api-client";
 import {
-  ROLE_LABELS,
-  SPRINT_STATUS_LABELS,
   TASK_STATUSES,
-  TASK_STATUS_LABELS,
   type AppTaskStatus,
 } from "@/lib/app-constants";
 import { apiRoutes } from "@/lib/api-routes";
+import {
+  formatCountLabel,
+  formatDateTime,
+  type AppLocale,
+  getRoleLabel,
+  getSprintStatusLabel,
+  getTaskStatusLabel,
+} from "@/lib/i18n";
 import { LogoutButton } from "@/app/(auth)/_components/logout-button";
+import { useI18n } from "@/app/_components/i18n-provider";
 import { TaskComments } from "@/app/(workspace)/_components/task-comments";
 import type {
   AppUserSummary,
@@ -33,24 +39,24 @@ type TaskPayload = {
   status: AppTaskStatus;
 };
 
-function displayName(user: AppUserSummary | null) {
+function displayName(user: AppUserSummary | null, unassignedLabel: string) {
   if (!user) {
-    return "Unassigned";
+    return unassignedLabel;
   }
 
   return user.name?.trim() || user.email;
 }
 
-function displayAssigneeNames(users: AppUserSummary[]) {
+function displayAssigneeNames(users: AppUserSummary[], unassignedLabel: string) {
   if (users.length === 0) {
-    return "Unassigned";
+    return unassignedLabel;
   }
 
-  return users.map((user) => displayName(user)).join(", ");
+  return users.map((user) => displayName(user, unassignedLabel)).join(", ");
 }
 
-function formatStamp(value: string) {
-  return new Date(value).toLocaleString();
+function formatStamp(value: string, locale: AppLocale) {
+  return formatDateTime(value, locale);
 }
 
 function parseStoryPointsInput(value: string) {
@@ -71,6 +77,8 @@ function TaskPlanningBadges({
   storyPoints: number | null;
   estimate: string | null;
 }) {
+  const { messages } = useI18n();
+
   if (!storyPoints && !estimate) {
     return null;
   }
@@ -84,7 +92,7 @@ function TaskPlanningBadges({
       ) : null}
       {estimate ? (
         <span className="rounded-full bg-amber-100 px-3 py-2 font-semibold text-amber-900">
-          Est. {estimate}
+          {messages.dashboard.estimate}: {estimate}
         </span>
       ) : null}
     </div>
@@ -102,6 +110,7 @@ function AssigneePicker({
   onChange: (nextIds: number[]) => void;
   disabled: boolean;
 }) {
+  const { locale, messages } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const selectedUsers = users.filter((user) => selectedIds.includes(user.id));
@@ -139,7 +148,7 @@ function AssigneePicker({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Multi Select
+            {messages.dashboard.multiSelect}
           </p>
 
           {selectedUsers.length > 0 ? (
@@ -151,9 +160,9 @@ function AssigneePicker({
                   onClick={() => toggleUser(user.id)}
                   disabled={disabled}
                   className="inline-flex items-center gap-2 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-900 transition hover:bg-teal-200 disabled:cursor-not-allowed"
-                  aria-label={`Remove ${displayName(user)}`}
+                  aria-label={`${messages.dashboard.removeMemberAria} ${displayName(user, messages.common.unassigned)}`}
                 >
-                  <span>{displayName(user)}</span>
+                  <span>{displayName(user, messages.common.unassigned)}</span>
                   <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-teal-200 text-[10px] leading-none text-teal-900">
                     x
                   </span>
@@ -161,20 +170,20 @@ function AssigneePicker({
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">Choose one or more members</p>
+            <p className="mt-2 text-sm text-slate-500">{messages.dashboard.chooseMembers}</p>
           )}
           </div>
 
           <div className="shrink-0 text-right">
             <p className="text-sm font-medium text-slate-950">
               {selectedUsers.length === 0
-                ? "No members"
-                : `${selectedUsers.length} selected`}
+                ? messages.dashboard.noMembers
+                : formatCountLabel(selectedUsers.length, messages.dashboard.selected, messages.dashboard.selected, locale)}
             </p>
             <button
               type="button"
               disabled={disabled}
-              aria-label={isOpen ? "Collapse member picker" : "Expand member picker"}
+              aria-label={isOpen ? messages.comments.hide : messages.comments.show}
               aria-expanded={isOpen}
               onClick={() => setIsOpen((current) => !current)}
               className="mt-2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed"
@@ -202,8 +211,12 @@ function AssigneePicker({
         <div className="absolute left-0 right-0 z-20 rounded-[1.6rem] border border-slate-200 bg-white p-3 shadow-[0_22px_60px_rgba(15,23,42,0.16)]">
           <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 px-2 pb-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950">Assign members</p>
-              <p className="text-xs text-slate-500">Select multiple users for this task</p>
+              <p className="text-sm font-semibold text-slate-950">
+                {messages.dashboard.assignMembersTitle}
+              </p>
+              <p className="text-xs text-slate-500">
+                {messages.dashboard.assignMembersDescription}
+              </p>
             </div>
             <button
               type="button"
@@ -211,7 +224,7 @@ function AssigneePicker({
               disabled={disabled || selectedIds.length === 0}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-rose-200 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Clear
+              {messages.common.clear}
             </button>
           </div>
 
@@ -232,7 +245,7 @@ function AssigneePicker({
                 } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-teal-400 hover:bg-teal-50/50"}`}
               >
                 <div className="min-w-0">
-                  <p className="font-medium">{displayName(user)}</p>
+                  <p className="font-medium">{displayName(user, messages.common.unassigned)}</p>
                   <p className="truncate text-xs text-slate-500">{user.email}</p>
                 </div>
                 <span
@@ -257,15 +270,20 @@ function AssigneePicker({
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 px-2 pt-3">
             <p className="text-xs text-slate-500">
               {selectedIds.length === 0
-                ? "No member selected yet."
-                : `${selectedIds.length} member${selectedIds.length > 1 ? "s" : ""} selected`}
+                ? messages.dashboard.noMemberSelectedYet
+                : formatCountLabel(
+                    selectedIds.length,
+                    messages.dashboard.selectedMembers,
+                    messages.dashboard.selectedMembersPlural,
+                    locale,
+                  )}
             </p>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
               className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-700"
             >
-              Done
+              {messages.common.done}
             </button>
           </div>
         </div>
@@ -292,6 +310,8 @@ function SummaryCard({
 }
 
 function SprintCard({ sprint }: { sprint: SprintSummary }) {
+  const { locale, messages } = useI18n();
+
   return (
     <Link
       href={`/sprints/${sprint.id}`}
@@ -300,29 +320,31 @@ function SprintCard({ sprint }: { sprint: SprintSummary }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Sprint Board
+            {messages.dashboard.sprintBoardLabel}
           </p>
           <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
             {sprint.name}
           </h3>
         </div>
         <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-          {SPRINT_STATUS_LABELS[sprint.status]}
+          {getSprintStatusLabel(sprint.status, messages)}
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        {sprint.goal || "No sprint goal has been written yet."}
+        {sprint.goal || messages.dashboard.noSprintGoal}
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-slate-100 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Todo</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            {messages.dashboard.todo}
+          </p>
           <p className="mt-2 text-xl font-semibold text-slate-950">{sprint.counts.TODO}</p>
         </div>
         <div className="rounded-2xl bg-slate-100 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            In Progress
+            {messages.dashboard.inProgress}
           </p>
           <p className="mt-2 text-xl font-semibold text-slate-950">
             {sprint.counts.IN_PROGRESS}
@@ -330,15 +352,17 @@ function SprintCard({ sprint }: { sprint: SprintSummary }) {
         </div>
         <div className="rounded-2xl bg-slate-100 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Complete
+            {messages.dashboard.complete}
           </p>
           <p className="mt-2 text-xl font-semibold text-slate-950">{sprint.counts.COMPLETE}</p>
         </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between text-sm text-slate-500">
-        <span>{sprint.taskCount} task(s)</span>
-        <span className="font-medium text-teal-800">Open kanban board</span>
+        <span>
+          {formatCountLabel(sprint.taskCount, messages.common.task, messages.common.tasks, locale)}
+        </span>
+        <span className="font-medium text-teal-800">{messages.common.openKanbanBoard}</span>
       </div>
     </Link>
   );
@@ -361,6 +385,7 @@ function ManagerTaskCard({
   onSave: (taskId: number, payload: TaskPayload) => Promise<void>;
   onDelete: (taskId: number) => Promise<void>;
 }) {
+  const { locale, messages } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [storyPoints, setStoryPoints] = useState(task.storyPoints ? String(task.storyPoints) : "");
@@ -384,7 +409,7 @@ function ManagerTaskCard({
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(`Delete "${task.title}"?`);
+    const confirmed = window.confirm(`${messages.common.delete} "${task.title}"?`);
 
     if (!confirmed) {
       return;
@@ -401,25 +426,25 @@ function ManagerTaskCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Task #{task.id}
+              {messages.common.task} #{task.id}
             </p>
             <p className="mt-2 text-sm text-slate-600">
-              Current sprint:{" "}
+              {messages.dashboard.currentSprint}:{" "}
               {task.sprint ? (
                 <Link href={`/sprints/${task.sprint.id}`} className="font-medium text-teal-800">
                   {task.sprint.name}
                 </Link>
               ) : (
-                "Backlog"
+                messages.common.backlog
               )}
             </p>
             <p className="mt-2 text-sm text-slate-600">
-              Assignees: {displayAssigneeNames(task.assignees)}
+              {messages.common.assignees}: {displayAssigneeNames(task.assignees, messages.common.unassigned)}
             </p>
             <TaskPlanningBadges storyPoints={task.storyPoints} estimate={task.estimate} />
           </div>
           <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold text-teal-900">
-            {TASK_STATUS_LABELS[task.status]}
+            {getTaskStatusLabel(task.status, messages)}
           </span>
         </div>
 
@@ -428,7 +453,7 @@ function ManagerTaskCard({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-            placeholder="Task title"
+            placeholder={messages.dashboard.taskTitle}
             required
             disabled={disabled}
           />
@@ -437,13 +462,13 @@ function ManagerTaskCard({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-            placeholder="Task description"
+            placeholder={messages.dashboard.taskDescription}
             disabled={disabled}
           />
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Story point</span>
+              <span className="font-medium">{messages.dashboard.storyPoint}</span>
               <input
                 type="number"
                 min={1}
@@ -451,18 +476,18 @@ function ManagerTaskCard({
                 value={storyPoints}
                 onChange={(event) => setStoryPoints(event.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-600"
-                placeholder="e.g. 5"
+                placeholder={messages.dashboard.storyPoint}
                 disabled={disabled}
               />
             </label>
 
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Estimate</span>
+              <span className="font-medium">{messages.dashboard.estimate}</span>
               <input
                 value={estimate}
                 onChange={(event) => setEstimate(event.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-600"
-                placeholder="e.g. 2d or 6h"
+                placeholder={messages.common.estimatePlaceholder}
                 disabled={disabled}
                 maxLength={60}
               />
@@ -471,7 +496,7 @@ function ManagerTaskCard({
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Assign members</span>
+              <span className="font-medium">{messages.dashboard.assignMembers}</span>
               <AssigneePicker
                 users={users}
                 selectedIds={assigneeIds}
@@ -481,14 +506,14 @@ function ManagerTaskCard({
             </div>
 
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Move into sprint</span>
+              <span className="font-medium">{messages.dashboard.moveIntoSprint}</span>
               <select
                 value={sprintId}
                 onChange={(event) => setSprintId(event.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-600"
                 disabled={disabled}
               >
-                <option value="">Backlog</option>
+                <option value="">{messages.common.backlog}</option>
                 {sprints.map((sprint) => (
                   <option key={sprint.id} value={sprint.id}>
                     {sprint.name}
@@ -498,7 +523,7 @@ function ManagerTaskCard({
             </label>
 
             <label className="space-y-2 text-sm text-slate-700">
-              <span className="font-medium">Status</span>
+              <span className="font-medium">{messages.dashboard.status}</span>
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value as AppTaskStatus)}
@@ -507,7 +532,7 @@ function ManagerTaskCard({
               >
                 {TASK_STATUSES.map((option) => (
                   <option key={option} value={option}>
-                    {TASK_STATUS_LABELS[option]}
+                    {getTaskStatusLabel(option, messages)}
                   </option>
                 ))}
               </select>
@@ -517,14 +542,18 @@ function ManagerTaskCard({
 
         {sprintId && !task.sprint ? (
           <p className="mt-4 text-xs text-teal-800">
-            Adding a task to a sprint resets it to Todo so it starts in the first kanban column.
+            {messages.dashboard.moveIntoSprintNote}
           </p>
         ) : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
           <div>
-            <p>Created by {displayName(task.creator)}</p>
-            <p>Updated {formatStamp(task.updatedAt)}</p>
+            <p>
+              {messages.common.createdBy} {displayName(task.creator, messages.common.unassigned)}
+            </p>
+            <p>
+              {messages.common.updated} {formatStamp(task.updatedAt, locale)}
+            </p>
           </div>
 
           <div className="flex gap-3">
@@ -534,14 +563,14 @@ function ManagerTaskCard({
               disabled={disabled}
               className="rounded-full border border-rose-200 px-4 py-2 font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Delete
+              {messages.dashboard.deleteAction}
             </button>
             <button
               type="submit"
               disabled={disabled}
               className="rounded-full bg-slate-950 px-5 py-2 font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Save
+              {messages.dashboard.saveAction}
             </button>
           </div>
         </div>
@@ -559,47 +588,50 @@ function MemberTaskCard({
   currentUser: AppUserSummary;
   task: DashboardTask;
 }) {
+  const { locale, messages } = useI18n();
   return (
     <article className="rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(19,33,24,0.08)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Assigned task
+            {messages.dashboard.assignedTask}
           </p>
           <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
             {task.title}
           </h3>
         </div>
         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
-          {TASK_STATUS_LABELS[task.status]}
+          {getTaskStatusLabel(task.status, messages)}
         </span>
       </div>
 
       <p className="mt-4 text-sm leading-6 text-slate-600">
-        {task.description || "No description added yet."}
+        {task.description || messages.common.noDescription}
       </p>
 
       <TaskPlanningBadges storyPoints={task.storyPoints} estimate={task.estimate} />
 
       <div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-600">
         <div className="rounded-full bg-slate-100 px-4 py-2">
-          Assigned by {displayName(task.creator)}
+          {messages.dashboard.assignedBy} {displayName(task.creator, messages.common.unassigned)}
         </div>
         <div className="rounded-full bg-slate-100 px-4 py-2">
-          Team: {displayAssigneeNames(task.assignees)}
+          {messages.dashboard.team}: {displayAssigneeNames(task.assignees, messages.common.unassigned)}
         </div>
         <div className="rounded-full bg-slate-100 px-4 py-2">
           {task.sprint ? (
             <Link href={`/sprints/${task.sprint.id}`} className="font-medium text-teal-800">
-              Sprint: {task.sprint.name}
+              {messages.dashboard.sprintLabel}: {task.sprint.name}
             </Link>
           ) : (
-            "Backlog task"
+            messages.dashboard.backlogTask
           )}
         </div>
       </div>
 
-      <p className="mt-5 text-sm text-slate-500">Updated {formatStamp(task.updatedAt)}</p>
+      <p className="mt-5 text-sm text-slate-500">
+        {messages.common.updated} {formatStamp(task.updatedAt, locale)}
+      </p>
 
       <TaskComments task={task} currentUser={currentUser} />
     </article>
@@ -619,6 +651,7 @@ function TaskSection({
   tasks: DashboardTask[];
   children: React.ReactNode;
 }) {
+  const { locale, messages } = useI18n();
   return (
     <section className="space-y-4">
       <div className="flex items-end justify-between gap-4">
@@ -626,7 +659,9 @@ function TaskSection({
           <h2 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
         </div>
-        <p className="text-sm text-slate-500">{tasks.length} task(s)</p>
+        <p className="text-sm text-slate-500">
+          {formatCountLabel(tasks.length, messages.common.task, messages.common.tasks, locale)}
+        </p>
       </div>
 
       {tasks.length === 0 ? (
@@ -648,6 +683,7 @@ export function DashboardShell({
   sprintTasks,
 }: DashboardShellProps) {
   const router = useRouter();
+  const { locale, messages } = useI18n();
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskStoryPoints, setTaskStoryPoints] = useState("");
@@ -691,10 +727,16 @@ export function DashboardShell({
       setTaskStoryPoints("");
       setTaskEstimate("");
       setTaskAssigneeIds([]);
-      refreshDashboard("Backlog task created.");
+      refreshDashboard(messages.dashboard.taskCreated);
     } catch (caughtError) {
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Task creation failed."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.dashboard.taskCreateFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -713,10 +755,16 @@ export function DashboardShell({
 
       setSprintName("");
       setSprintGoal("");
-      refreshDashboard("Sprint created. You can now move tasks into it.");
+      refreshDashboard(messages.dashboard.sprintCreated);
     } catch (caughtError) {
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Sprint creation failed."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.dashboard.sprintCreateFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -729,11 +777,17 @@ export function DashboardShell({
         body: payload,
       });
       refreshDashboard(
-        payload.sprintId ? "Task saved and synced with its sprint." : "Task saved successfully.",
+        payload.sprintId ? messages.dashboard.taskSavedSprint : messages.dashboard.taskSaved,
       );
     } catch (caughtError) {
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Task update failed."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.dashboard.taskUpdateFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -744,10 +798,16 @@ export function DashboardShell({
       await sendJson(apiRoutes.task(taskId), {
         method: "DELETE",
       });
-      refreshDashboard("Task deleted.");
+      refreshDashboard(messages.dashboard.taskDeleted);
     } catch (caughtError) {
       setFeedback(null);
-      setError(getApiErrorMessage(caughtError, "Task delete failed."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.dashboard.taskDeleteFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -762,20 +822,21 @@ export function DashboardShell({
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">
                 {currentUser.role === "MANAGER"
-                  ? "Plan sprints, assign tasks, and move work into kanban boards."
-                  : "See your assigned sprint work and keep tasks moving."}
+                  ? messages.dashboard.titleManager
+                  : messages.dashboard.titleMember}
               </h1>
               <p className="mt-4 text-base leading-7 text-slate-700">
-                Signed in as {displayName(currentUser)} ({ROLE_LABELS[currentUser.role]}).
+                {messages.dashboard.signedInAs} {displayName(currentUser, messages.common.unassigned)} (
+                {getRoleLabel(currentUser.role, messages)}).
               </p>
             </div>
             <LogoutButton />
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <SummaryCard label="Backlog" value={backlogTasks.length} tone="bg-white/80" />
-            <SummaryCard label="In Sprints" value={sprintTasks.length} tone="bg-white/80" />
-            <SummaryCard label="Active Sprints" value={activeSprintCount} tone="bg-white/80" />
+            <SummaryCard label={messages.dashboard.backlog} value={backlogTasks.length} tone="bg-white/80" />
+            <SummaryCard label={messages.dashboard.inSprints} value={sprintTasks.length} tone="bg-white/80" />
+            <SummaryCard label={messages.dashboard.activeSprints} value={activeSprintCount} tone="bg-white/80" />
           </div>
         </header>
 
@@ -798,10 +859,10 @@ export function DashboardShell({
               className="rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(19,33,24,0.08)]"
             >
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Create Task
+                {messages.dashboard.createTaskEyebrow}
               </p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Add work to the backlog
+                {messages.dashboard.createTaskTitle}
               </h2>
 
               <div className="mt-5 space-y-4">
@@ -809,7 +870,7 @@ export function DashboardShell({
                   value={taskTitle}
                   onChange={(event) => setTaskTitle(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                  placeholder="Task title"
+                  placeholder={messages.dashboard.taskTitle}
                   required
                   disabled={isPending}
                 />
@@ -817,12 +878,12 @@ export function DashboardShell({
                   value={taskDescription}
                   onChange={(event) => setTaskDescription(event.target.value)}
                   className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                  placeholder="Describe the task"
+                  placeholder={messages.dashboard.describeTask}
                   disabled={isPending}
                 />
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="space-y-2 text-sm text-slate-700">
-                    <span className="font-medium">Story point</span>
+                    <span className="font-medium">{messages.dashboard.storyPoint}</span>
                     <input
                       type="number"
                       min={1}
@@ -830,25 +891,27 @@ export function DashboardShell({
                       value={taskStoryPoints}
                       onChange={(event) => setTaskStoryPoints(event.target.value)}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                      placeholder="e.g. 5"
+                      placeholder={messages.dashboard.storyPoint}
                       disabled={isPending}
                     />
                   </label>
 
                   <label className="space-y-2 text-sm text-slate-700">
-                    <span className="font-medium">Estimate</span>
+                    <span className="font-medium">{messages.dashboard.estimate}</span>
                     <input
                       value={taskEstimate}
                       onChange={(event) => setTaskEstimate(event.target.value)}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                      placeholder="e.g. 2d or 6h"
+                      placeholder={messages.common.estimatePlaceholder}
                       disabled={isPending}
                       maxLength={60}
                     />
                   </label>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-700">Assign members</p>
+                  <p className="text-sm font-medium text-slate-700">
+                    {messages.dashboard.assignMembers}
+                  </p>
                   <AssigneePicker
                     users={users}
                     selectedIds={taskAssigneeIds}
@@ -863,7 +926,7 @@ export function DashboardShell({
                 disabled={isPending}
                 className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPending ? "Working..." : "Create task"}
+                {isPending ? messages.common.working : messages.dashboard.createTask}
               </button>
             </form>
 
@@ -872,10 +935,10 @@ export function DashboardShell({
               className="rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(19,33,24,0.08)]"
             >
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Create Sprint
+                {messages.dashboard.createSprintEyebrow}
               </p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Start a new kanban board
+                {messages.dashboard.createSprintTitle}
               </h2>
 
               <div className="mt-5 space-y-4">
@@ -883,7 +946,7 @@ export function DashboardShell({
                   value={sprintName}
                   onChange={(event) => setSprintName(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                  placeholder="Sprint name"
+                  placeholder={messages.dashboard.sprintName}
                   required
                   disabled={isPending}
                 />
@@ -891,7 +954,7 @@ export function DashboardShell({
                   value={sprintGoal}
                   onChange={(event) => setSprintGoal(event.target.value)}
                   className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600"
-                  placeholder="Sprint goal"
+                  placeholder={messages.dashboard.sprintGoal}
                   disabled={isPending}
                 />
               </div>
@@ -901,21 +964,20 @@ export function DashboardShell({
                 disabled={isPending}
                 className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPending ? "Working..." : "Create sprint"}
+                {isPending ? messages.common.working : messages.dashboard.createSprint}
               </button>
             </form>
           </section>
         ) : (
           <section className="rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(19,33,24,0.08)]">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Member View
+              {messages.dashboard.memberViewEyebrow}
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-              Your dashboard shows backlog items and sprint boards that belong to you.
+              {messages.dashboard.memberViewTitle}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Open a sprint board to drag your assigned cards from Todo to In Progress and then
-              to Complete.
+              {messages.dashboard.memberViewDescription}
             </p>
           </section>
         )}
@@ -924,18 +986,25 @@ export function DashboardShell({
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
-                Sprint Boards
+                {messages.dashboard.sprintBoards}
               </h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Open any sprint to see its kanban columns and move cards between them.
+                {messages.dashboard.sprintBoardsDescription}
               </p>
             </div>
-            <p className="text-sm text-slate-500">{sprints.length} sprint(s)</p>
+            <p className="text-sm text-slate-500">
+              {formatCountLabel(
+                sprints.length,
+                messages.common.sprint,
+                messages.common.sprints,
+                locale,
+              )}
+            </p>
           </div>
 
           {sprints.length === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center text-slate-600">
-              No sprints yet. Create one and then move tasks into it.
+              {messages.dashboard.noSprints}
             </div>
           ) : (
             <div className="grid gap-5 lg:grid-cols-2">
@@ -947,9 +1016,9 @@ export function DashboardShell({
         </section>
 
         <TaskSection
-          title="Backlog Tasks"
-          description="Tasks outside any sprint stay here until you move them into a sprint."
-          emptyLabel="No backlog tasks right now."
+          title={messages.dashboard.backlogTasksTitle}
+          description={messages.dashboard.backlogTasksDescription}
+          emptyLabel={messages.dashboard.noBacklogTasks}
           tasks={backlogTasks}
         >
           {currentUser.role === "MANAGER"
@@ -971,9 +1040,9 @@ export function DashboardShell({
         </TaskSection>
 
         <TaskSection
-          title="Sprint Tasks"
-          description="These tasks already belong to a sprint. Open the linked board for kanban view."
-          emptyLabel="No tasks have been moved into a sprint yet."
+          title={messages.dashboard.sprintTasksTitle}
+          description={messages.dashboard.sprintTasksDescription}
+          emptyLabel={messages.dashboard.noSprintTasks}
           tasks={sprintTasks}
         >
           {currentUser.role === "MANAGER"
@@ -996,8 +1065,7 @@ export function DashboardShell({
 
         {currentUser.role === "MANAGER" && allTasks.length > 0 ? (
           <p className="text-center text-sm text-slate-500">
-            Tip: when you move a task into a sprint, it lands in Todo and becomes available on
-            that sprint&apos;s kanban board.
+            {messages.dashboard.tip}
           </p>
         ) : null}
       </div>

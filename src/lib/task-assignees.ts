@@ -1,8 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
+import type { AppMessages } from "@/lib/i18n";
 
 export async function validateMemberAssigneeIds(
   prisma: PrismaClient,
   assigneeIds: number[],
+  messages: AppMessages,
 ): Promise<
   | {
       ok: true;
@@ -38,7 +40,7 @@ export async function validateMemberAssigneeIds(
   if (users.length !== uniqueAssigneeIds.length) {
     return {
       ok: false,
-      error: "One or more selected assignees were not found.",
+      error: messages.api.assigneeNotFound,
       status: 404,
     };
   }
@@ -46,7 +48,7 @@ export async function validateMemberAssigneeIds(
   if (users.some((user) => user.role !== "MEMBER")) {
     return {
       ok: false,
-      error: "Only member users can receive assigned tasks.",
+      error: messages.api.assigneeMustBeMember,
       status: 400,
     };
   }

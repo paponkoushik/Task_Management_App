@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getDictionary, getLocale } from "@/lib/i18n-server";
+import { I18nProvider } from "@/app/_components/i18n-provider";
+import { LanguageSwitcher } from "@/app/_components/language-switcher";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,18 +20,28 @@ export const metadata: Metadata = {
   description: "JWT auth todo app with assigned task workflow",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getDictionary(locale);
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        {children}
+        <I18nProvider locale={locale} messages={messages}>
+          <div className="pointer-events-none fixed right-4 top-4 z-50">
+            <div className="pointer-events-auto">
+              <LanguageSwitcher />
+            </div>
+          </div>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage, requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
+import { formatDateTime } from "@/lib/i18n";
+import { useI18n } from "@/app/_components/i18n-provider";
 import type { AppUserSummary, DashboardTask, TaskComment } from "@/types/task-orbit";
 
 type TaskCommentsProps = {
@@ -20,16 +22,13 @@ function displayName(user: AppUserSummary) {
   return user.name?.trim() || user.email;
 }
 
-function formatStamp(value: string) {
-  return new Date(value).toLocaleString();
-}
-
 export function TaskComments({
   task,
   currentUser,
   compact = false,
 }: TaskCommentsProps) {
   const router = useRouter();
+  const { locale, messages } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [comments, setComments] = useState<LocalTaskComment[]>(task.comments);
   const [body, setBody] = useState("");
@@ -49,7 +48,7 @@ export function TaskComments({
     const trimmedBody = body.trim();
 
     if (!trimmedBody) {
-      setError("Comment likhte hobe.");
+      setError(messages.comments.commentRequired);
       return;
     }
 
@@ -80,7 +79,7 @@ export function TaskComments({
       if (!response.ok) {
         setComments((current) => current.filter((comment) => comment.id !== optimisticId));
         setBody(trimmedBody);
-        setError(payload?.error ?? "Comment could not be posted.");
+        setError(payload?.error ?? messages.comments.commentPostFailed);
         return;
       }
 
@@ -98,7 +97,13 @@ export function TaskComments({
     } catch (caughtError) {
       setComments((current) => current.filter((comment) => comment.id !== optimisticId));
       setBody(trimmedBody);
-      setError(getApiErrorMessage(caughtError, "Comment could not be posted."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.comments.commentPostFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -120,7 +125,7 @@ export function TaskComments({
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-600">
-              Comments
+              {messages.comments.title}
             </h4>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               {comments.length}
@@ -128,19 +133,19 @@ export function TaskComments({
           </div>
           <p className="mt-2 truncate text-xs text-slate-500">
             {latestComment
-              ? `${latestComment.author.id === currentUser.id ? "You" : displayName(latestComment.author)}: ${latestComment.body}`
-              : "No comments yet."}
+              ? `${latestComment.author.id === currentUser.id ? messages.comments.you : displayName(latestComment.author)}: ${latestComment.body}`
+              : messages.comments.noCommentsYet}
           </p>
         </div>
         <span className="ml-4 shrink-0 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-          {isOpen ? "Hide" : "Show"}
+          {isOpen ? messages.comments.hide : messages.comments.show}
         </span>
       </button>
 
       {isOpen ? (
         <div className="mt-4">
           {comments.length === 0 ? (
-            <p className="text-sm text-slate-500">No comments yet.</p>
+            <p className="text-sm text-slate-500">{messages.comments.noCommentsYet}</p>
           ) : (
             <div className="space-y-3">
               {comments.map((comment) => (
@@ -150,9 +155,15 @@ export function TaskComments({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="font-semibold uppercase tracking-[0.16em] text-slate-600">
-                      {comment.author.id === currentUser.id ? "You" : displayName(comment.author)}
+                      {comment.author.id === currentUser.id
+                        ? messages.comments.you
+                        : displayName(comment.author)}
                     </span>
-                    <span>{comment.optimistic ? "Posting..." : formatStamp(comment.createdAt)}</span>
+                    <span>
+                      {comment.optimistic
+                        ? messages.comments.posting
+                        : formatDateTime(comment.createdAt, locale)}
+                    </span>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                     {comment.body}
@@ -170,7 +181,7 @@ export function TaskComments({
                 className={`w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-teal-600 ${
                   compact ? "min-h-24" : "min-h-28"
                 }`}
-                placeholder="Write a comment"
+                placeholder={messages.comments.writeComment}
                 disabled={isPending}
                 maxLength={500}
                 required
@@ -179,19 +190,19 @@ export function TaskComments({
               {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
               <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-                <span>Only the task creator and assigned members can comment.</span>
+                <span>{messages.comments.commentPermission}</span>
                 <button
                   type="submit"
                   disabled={isPending}
                   className="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isPending ? "Posting..." : "Add comment"}
+                  {isPending ? messages.comments.posting : messages.comments.addComment}
                 </button>
               </div>
             </form>
           ) : (
             <p className="mt-4 text-xs text-slate-500">
-              Only the task creator and assigned members can comment on this task.
+              {messages.comments.commentPermissionOnly}
             </p>
           )}
         </div>

@@ -64,13 +64,17 @@ export async function sendJson<TPayload = unknown>(
   return payload;
 }
 
-export function getApiErrorMessage(error: unknown, fallback: string) {
+export function getApiErrorMessage(
+  error: unknown,
+  fallback: string,
+  networkFallback = fallback,
+) {
   if (error instanceof ApiRequestError) {
-    return error.payload?.error ?? error.message ?? fallback;
+    return error.payload?.error ?? fallback;
   }
 
   if (error instanceof TypeError) {
-    return "Network error. Please try again.";
+    return networkFallback;
   }
 
   if (error instanceof Error && error.message) {

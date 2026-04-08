@@ -2,21 +2,23 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getDictionary } from "@/lib/i18n-server";
 import { createSprintSchema } from "@/lib/schemas";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const messages = await getDictionary();
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json({ error: messages.api.unauthorized }, { status: 401 });
   }
 
   if (currentUser.role !== "MANAGER") {
     return NextResponse.json(
-      { error: "Only the manager can create sprints." },
+      { error: messages.api.onlyManagerCreatesSprints },
       { status: 403 },
     );
   }
@@ -26,7 +28,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Sprint name is required. Goal can be up to 220 characters." },
+      { error: messages.api.sprintNameRequired },
       { status: 400 },
     );
   }

@@ -10,9 +10,9 @@ const AVATAR_TONES = [
   "bg-emerald-600 text-white",
 ] as const;
 
-export function displayUserName(user: AppUserSummary | null) {
+export function displayUserName(user: AppUserSummary | null, emptyLabel = "Unassigned") {
   if (!user) {
-    return "Unassigned";
+    return emptyLabel;
   }
 
   return user.name?.trim() || user.email;
@@ -35,11 +35,13 @@ function getUserInitials(user: AppUserSummary) {
 export function AssigneeAvatars({
   users,
   emptyLabel = "Unassigned",
+  removeLabel = "Remove",
   onRemove,
   disabled = false,
 }: {
   users: AppUserSummary[];
   emptyLabel?: string;
+  removeLabel?: string;
   onRemove?: (userId: number) => void;
   disabled?: boolean;
 }) {
@@ -60,8 +62,8 @@ export function AssigneeAvatars({
       {users.map((user, index) => (
         <div
           key={user.id}
-          title={displayUserName(user)}
-          aria-label={displayUserName(user)}
+          title={displayUserName(user, emptyLabel)}
+          aria-label={displayUserName(user, emptyLabel)}
           className="group relative -ml-2 first:ml-0 transition-transform hover:z-20 hover:-translate-y-0.5"
         >
           <span
@@ -75,7 +77,7 @@ export function AssigneeAvatars({
           {onRemove ? (
             <button
               type="button"
-              aria-label={`Remove ${displayUserName(user)}`}
+              aria-label={`${removeLabel} ${displayUserName(user, emptyLabel)}`}
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();

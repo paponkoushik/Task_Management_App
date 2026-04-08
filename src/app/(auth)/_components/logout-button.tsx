@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage, requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
+import { useI18n } from "@/app/_components/i18n-provider";
 
 export function LogoutButton() {
   const router = useRouter();
+  const { messages } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -19,16 +21,22 @@ export function LogoutButton() {
       });
 
       if (!response.ok) {
-        setError(payload?.error ?? "Logout failed.");
+        setError(payload?.error ?? messages.auth.logoutFailed);
         return;
       }
 
       startTransition(() => {
-        router.push("/login");
+        router.push(messages.auth.logoutRedirect);
         router.refresh();
       });
     } catch (caughtError) {
-      setError(getApiErrorMessage(caughtError, "Logout failed."));
+      setError(
+        getApiErrorMessage(
+          caughtError,
+          messages.auth.logoutFailed,
+          messages.common.networkError,
+        ),
+      );
     }
   }
 
@@ -40,7 +48,7 @@ export function LogoutButton() {
         disabled={isPending}
         className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? "Logging out..." : "Logout"}
+        {isPending ? messages.auth.loggingOut : messages.auth.logout}
       </button>
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
     </div>

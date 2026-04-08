@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getDictionary } from "@/lib/i18n-server";
 import { managerTaskUpdateSchema } from "@/lib/schemas";
 import { validateMemberAssigneeIds } from "@/lib/task-assignees";
 import { getNextTaskPosition } from "@/lib/task-position";
@@ -10,17 +11,18 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function PATCH(request: Request, context: RouteContext<"/api/tasks/[taskId]">) {
+  const messages = await getDictionary();
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json({ error: messages.api.unauthorized }, { status: 401 });
   }
 
   const { taskId } = await context.params;
   const parsedTaskId = Number(taskId);
 
   if (!Number.isInteger(parsedTaskId) || parsedTaskId <= 0) {
-    return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
+    return NextResponse.json({ error: messages.api.invalidTaskId }, { status: 400 });
   }
 
   const existingTask = await prisma.task.findUnique({
@@ -33,7 +35,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/tasks/
   });
 
   if (!existingTask) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: messages.api.taskNotFound }, { status: 404 });
   }
 
   const body = await request.json().catch(() => null);
@@ -43,12 +45,16 @@ export async function PATCH(request: Request, context: RouteContext<"/api/tasks/
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Manager updates require title, description, sprint, status, and assignee info." },
+        { error: messages.api.managerUpdateInvalid },
         { status: 400 },
       );
     }
 
-    const validatedAssigneeIds = await validateMemberAssigneeIds(prisma, parsed.data.assigneeIds);
+    const validatedAssigneeIds = await validateMemberAssigneeIds(
+      prisma,
+      parsed.data.assigneeIds,
+      messages,
+    );
 
     if (!validatedAssigneeIds.ok) {
       return NextResponse.json(
@@ -64,7 +70,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/tasks/
       });
 
       if (!sprint) {
-        return NextResponse.json({ error: "Selected sprint was not found." }, { status: 404 });
+        return NextResponse.json({ error: messages.api.sprintNotFound }, { status: 404 });
       }
     }
 
@@ -112,21 +118,22 @@ export async function PATCH(request: Request, context: RouteContext<"/api/tasks/
   }
 
   return NextResponse.json(
-    { error: "Only the manager can edit full task details." },
+    { error: messages.api.onlyManagerEditTasks },
     { status: 403 },
   );
 }
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/tasks/[taskId]">) {
+  const messages = await getDictionary();
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json({ error: messages.api.unauthorized }, { status: 401 });
   }
 
   if (currentUser.role !== "MANAGER") {
     return NextResponse.json(
-      { error: "Only the manager can delete tasks." },
+      { error: messages.api.onlyManagerDeleteTasks },
       { status: 403 },
     );
   }
@@ -135,7 +142,7 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/task
   const parsedTaskId = Number(taskId);
 
   if (!Number.isInteger(parsedTaskId) || parsedTaskId <= 0) {
-    return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
+    return NextResponse.json({ error: messages.api.invalidTaskId }, { status: 400 });
   }
 
   const existingTask = await prisma.task.findUnique({
@@ -146,7 +153,7 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/task
   });
 
   if (!existingTask) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: messages.api.taskNotFound }, { status: 404 });
   }
 
   await prisma.task.delete({

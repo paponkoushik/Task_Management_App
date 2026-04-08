@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getDictionary } from "@/lib/i18n-server";
 import { sprintStatusUpdateSchema } from "@/lib/schemas";
 import { getNextTaskPosition } from "@/lib/task-position";
 
@@ -12,17 +13,18 @@ export async function PATCH(
   request: Request,
   context: RouteContext<"/api/tasks/[taskId]/status">,
 ) {
+  const messages = await getDictionary();
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return NextResponse.json({ error: messages.api.unauthorized }, { status: 401 });
   }
 
   const { taskId } = await context.params;
   const parsedTaskId = Number(taskId);
 
   if (!Number.isInteger(parsedTaskId) || parsedTaskId <= 0) {
-    return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
+    return NextResponse.json({ error: messages.api.invalidTaskId }, { status: 400 });
   }
 
   const task = await prisma.task.findUnique({
@@ -41,7 +43,7 @@ export async function PATCH(
   });
 
   if (!task) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: messages.api.taskNotFound }, { status: 404 });
   }
 
   const isAssignedMember =
@@ -50,7 +52,7 @@ export async function PATCH(
 
   if (currentUser.role !== "MANAGER" && !isAssignedMember) {
     return NextResponse.json(
-      { error: "You can only move tasks assigned to you." },
+      { error: messages.api.onlyMoveAssignedTasks },
       { status: 403 },
     );
   }
@@ -59,7 +61,7 @@ export async function PATCH(
   const parsed = sprintStatusUpdateSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Choose a valid task status." }, { status: 400 });
+    return NextResponse.json({ error: messages.api.chooseValidTaskStatus }, { status: 400 });
   }
 
   if (task.status === parsed.data.status) {
