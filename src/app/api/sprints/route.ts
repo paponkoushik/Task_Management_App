@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { createSprintSchema } from "@/lib/schemas";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const currentUser = await getCurrentUser();
 

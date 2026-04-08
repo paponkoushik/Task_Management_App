@@ -5,6 +5,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { sprintStatusUpdateSchema } from "@/lib/schemas";
 import { getNextTaskPosition } from "@/lib/task-position";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function PATCH(
   request: Request,
   context: RouteContext<"/api/tasks/[taskId]/status">,

@@ -5,6 +5,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { createTaskSchema } from "@/lib/schemas";
 import { validateMemberAssigneeIds } from "@/lib/task-assignees";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const currentUser = await getCurrentUser();
 

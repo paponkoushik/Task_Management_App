@@ -6,6 +6,9 @@ import { managerTaskUpdateSchema } from "@/lib/schemas";
 import { validateMemberAssigneeIds } from "@/lib/task-assignees";
 import { getNextTaskPosition } from "@/lib/task-position";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function PATCH(request: Request, context: RouteContext<"/api/tasks/[taskId]">) {
   const currentUser = await getCurrentUser();
 

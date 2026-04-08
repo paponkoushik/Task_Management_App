@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { createTaskCommentSchema } from "@/lib/schemas";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 const userSelect = {
   id: true,
   name: true,
