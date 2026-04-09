@@ -4,6 +4,7 @@ import {
   dictionaries,
   type DictionaryLocale,
   type DictionaryMessages,
+  localeMetadata,
 } from "@/lib/locales";
 
 export { APP_LOCALES };
@@ -22,6 +23,10 @@ export function isLocale(value: string | null | undefined): value is AppLocale {
 
 export function getDictionary(locale: AppLocale): AppMessages {
   return localeDictionaries[locale];
+}
+
+export function getLocaleLabel(locale: AppLocale) {
+  return localeMetadata[locale].label;
 }
 
 export function getRoleLabel(role: AppUserRole, messages: AppMessages) {
@@ -53,7 +58,7 @@ export function getSprintStatusLabel(status: AppSprintStatus, messages: AppMessa
 }
 
 export function formatDateTime(value: string, locale: AppLocale) {
-  return new Date(value).toLocaleString(locale === "bn" ? "bn-BD" : "en-US");
+  return new Date(value).toLocaleString(localeMetadata[locale].intl);
 }
 
 export function formatCountLabel(
@@ -62,13 +67,6 @@ export function formatCountLabel(
   plural: string,
   locale: AppLocale,
 ) {
-  const formattedCount = new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-US").format(
-    count,
-  );
-
-  if (locale === "bn") {
-    return `${formattedCount} ${plural}`;
-  }
-
+  const formattedCount = new Intl.NumberFormat(localeMetadata[locale].intl).format(count);
   return `${formattedCount} ${count === 1 ? singular : plural}`;
 }

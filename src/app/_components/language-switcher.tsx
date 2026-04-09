@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@/lib/api-client";
 import { apiRoutes } from "@/lib/api-routes";
-import { APP_LOCALES, type AppLocale } from "@/lib/i18n";
+import { APP_LOCALES, getLocaleLabel, type AppLocale } from "@/lib/i18n";
 import { useI18n } from "./i18n-provider";
 
 export function LanguageSwitcher() {
@@ -13,11 +13,6 @@ export function LanguageSwitcher() {
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-
-  const localeLabels: Record<AppLocale, string> = {
-    en: "English",
-    bn: "বাংলা",
-  };
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -75,7 +70,7 @@ export function LanguageSwitcher() {
           </svg>
         </span>
         <span className="min-w-0 text-sm font-semibold tracking-tight">
-          {localeLabels[locale]}
+          {getLocaleLabel(locale)}
         </span>
         <svg
           viewBox="0 0 20 20"
@@ -99,7 +94,7 @@ export function LanguageSwitcher() {
         <div
           role="menu"
           aria-label={messages.common.language}
-          className="absolute right-0 top-14 min-w-44 rounded-[1.4rem] border border-white/80 bg-white/95 p-2 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur"
+          className="absolute right-0 top-14 min-w-52 rounded-[1.4rem] border border-white/80 bg-white/95 p-2 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur"
         >
           {APP_LOCALES.map((option) => {
             const isActive = option === locale;
@@ -120,7 +115,7 @@ export function LanguageSwitcher() {
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                 }`}
               >
-                <span>{localeLabels[option]}</span>
+                <span>{getLocaleLabel(option)}</span>
                 <span
                   className={`inline-flex h-2.5 w-2.5 rounded-full ${
                     isActive ? "bg-white" : "bg-slate-300"

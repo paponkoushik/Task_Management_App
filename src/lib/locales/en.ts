@@ -1,3 +1,9 @@
+type DeepStringShape<T> = T extends string
+  ? string
+  : {
+      [K in keyof T]: DeepStringShape<T[K]>;
+    };
+
 export const enMessages = {
   common: {
     language: "Language",
@@ -214,3 +220,5 @@ export const enMessages = {
     invalidLocale: "Invalid language selection.",
   },
 } as const;
+
+export type EnMessages = DeepStringShape<typeof enMessages>;
